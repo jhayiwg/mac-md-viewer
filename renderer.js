@@ -220,7 +220,7 @@ ipcRenderer.on('menu-swap-sidebar', () => toggleSidebarPosition());
 ipcRenderer.on('menu-open-workspace', (event, path) => openSavedWorkspace(path));
 ipcRenderer.on('menu-go-home', () => showHome());
 
-function showHome() {
+async function showHome() {
   currentFolder = null;
   files = [];
   currentFile = null;
@@ -238,6 +238,13 @@ function showHome() {
   refreshWorkspaceBtn.style.display = 'none';
   if (footerPath) footerPath.textContent = '';
   
+  // Fetch latest workspaces
+  try {
+    savedWorkspaces = await window.api.getWorkspaces();
+  } catch (err) {
+    console.error('Failed to update workspaces:', err);
+  }
+
   // Show recent workspaces
   recentWorkspaces.style.display = 'block';
   placeholder.style.display = 'flex';

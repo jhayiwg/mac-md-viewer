@@ -32,14 +32,28 @@ function saveWorkspaces(workspaces) {
 // Create Application Menu
 function createMenu() {
   const workspaces = loadWorkspaces();
-  const workspaceItems = workspaces.slice(0, 10).map(ws => ({
-    label: ws.name,
-    click: () => {
-      if (mainWindow) {
-        mainWindow.webContents.send('menu-open-workspace', ws.path);
+  const homeDir = app.getPath('home');
+  const workspaceItems = workspaces.slice(0, 10).map(ws => {
+    const isDefaultName = ws.name === path.basename(ws.path);
+    let label = ws.name;
+    
+    if (isDefaultName) {
+      if (ws.path.startsWith(homeDir)) {
+        label = ws.path.replace(homeDir, '~');
+      } else {
+        label = ws.path;
       }
     }
-  }));
+    
+    return {
+      label: label,
+      click: () => {
+        if (mainWindow) {
+          mainWindow.webContents.send('menu-open-workspace', ws.path);
+        }
+      }
+    };
+  });
 
   const template = [
     // App Menu (macOS)
