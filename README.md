@@ -2,7 +2,7 @@
 
 > A beautiful, modern Markdown viewer and editor for macOS.
 
-![MD Viewer Screenshot](./assets/screenshot.png)
+![MD Viewer Screenshot](./assets/screenshot1.png)
 
 ## Overview
 

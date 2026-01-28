@@ -114,6 +114,8 @@ const cancelModalBtn = document.getElementById('cancelModalBtn');
 const recentWorkspaces = document.getElementById('recentWorkspaces');
 const workspaceList = document.getElementById('workspaceList');
 const footerPath = document.getElementById('footerPath');
+const imageView = document.getElementById('imageView');
+const imageDisplay = document.getElementById('imageDisplay');
 
 // Rename Workspace Modal
 const renameWorkspaceModal = document.getElementById('renameWorkspaceModal');
@@ -590,8 +592,11 @@ function renderFileList() {
           fileDiv.classList.add('active');
         }
         
+        const isImage = /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(item.name);
+        const icon = isImage ? '🖼️' : '📄';
+
         fileDiv.innerHTML = `
-          <span class="file-item-icon">📄</span>
+          <span class="file-item-icon">${icon}</span>
           <span class="file-item-name">${item.name}</span>
         `;
         
@@ -682,6 +687,37 @@ function handleDragEnd(e) {
 }
 
 async function openFile(file) {
+  // Check if image
+  if (/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file.name)) {
+    currentFile = file;
+    
+    // Update active state
+    document.querySelectorAll('.file-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.path === file.path);
+    });
+
+    // Show content view
+    placeholder.style.display = 'none';
+    contentView.style.display = 'flex';
+    
+    // Update title
+    fileTitle.textContent = file.name;
+    
+    // Show image view
+    markdownView.style.display = 'none';
+    editorView.style.display = 'none';
+    imageView.style.display = 'flex';
+    imageDisplay.src = file.path; // Local file path
+    
+    // Disable edit mode toggle
+    editModeBtn.disabled = true;
+    editModeBtn.style.opacity = '0.5';
+    viewModeBtn.click(); // Ensure view mode is active
+    
+    return;
+  }
+
+  // Handle Markdown Files
   const result = await window.api.readFile(file.path);
   
   if (result.success) {
@@ -700,6 +736,13 @@ async function openFile(file) {
     // Update title
     fileTitle.textContent = file.name.replace('.md', '');
     
+    // Enable edit mode toggle
+    editModeBtn.disabled = false;
+    editModeBtn.style.opacity = '1';
+    
+    // Show markdown view
+    imageView.style.display = 'none';
+    
     // Render markdown
     markdownView.innerHTML = marked.parse(result.content);
     
@@ -717,8 +760,13 @@ function setMode(mode) {
   viewModeBtn.classList.toggle('active', !isEditMode);
   editModeBtn.classList.toggle('active', isEditMode);
   
-  markdownView.style.display = isEditMode ? 'none' : 'block';
-  editorView.style.display = isEditMode ? 'flex' : 'none';
+  if (imageView.style.display === 'flex') {
+    markdownView.style.display = 'none';
+    editorView.style.display = 'none';
+  } else {
+    markdownView.style.display = isEditMode ? 'none' : 'block';
+    editorView.style.display = isEditMode ? 'flex' : 'none';
+  }
   
   if (isEditMode) {
     editor.value = originalContent;

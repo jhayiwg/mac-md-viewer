@@ -459,7 +459,7 @@ function scanForMarkdownFiles(folderPath) {
               children: children
             });
           }
-        } else if (item.endsWith(".md")) {
+        } else if (item.endsWith(".md") || /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(item)) {
           results.push({
             name: item,
             path: fullPath,
@@ -472,7 +472,7 @@ function scanForMarkdownFiles(folderPath) {
       console.error("Error scanning directory:", error);
     }
     
-    // Sort: directories first, then files with priority (index.md, README.md, README*.md)
+    // Sort: directories first, then files with priority (index.md, README.md, README*.md), then alphabetical
     return results.sort((a, b) => {
       if (a.type !== b.type) {
         return a.type === 'directory' ? -1 : 1;

@@ -1251,3 +1251,23 @@ body {
 .context-menu-item:hover {
   background: var(--bg-hover);
 }
+/* ========================================
+   Image View
+======================================== */
+.image-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px;
+  background-color: var(--bg-primary);
+  overflow: auto;
+}
+
+.image-view img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
