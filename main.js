@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -431,6 +431,42 @@ ipcMain.handle("create-file", async (event, folderPath, fileName) => {
     fs.writeFileSync(filePath, template, "utf-8");
 
     return { success: true, path: filePath, content: template };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("open-external", async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open external URL:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("move-file", async (event, sourcePath, targetPath) => {
+  try {
+    // Check if source exists
+    if (!fs.existsSync(sourcePath)) {
+      return { success: false, error: "Source file not found" };
+    }
+
+    // Determine destination path
+    // If targetPath is a directory, append source filename
+    let destinationPath = targetPath;
+    if (fs.existsSync(targetPath) && fs.statSync(targetPath).isDirectory()) {
+      destinationPath = path.join(targetPath, path.basename(sourcePath));
+    }
+
+    // Check if destination already exists to avoid overwrite (optional, or fail)
+    if (fs.existsSync(destinationPath)) {
+      return { success: false, error: "Destination file already exists" };
+    }
+
+    fs.renameSync(sourcePath, destinationPath);
+    return { success: true, path: destinationPath };
   } catch (error) {
     return { success: false, error: error.message };
   }

@@ -13,5 +13,7 @@ window.api = {
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   saveFile: (filePath, content) => ipcRenderer.invoke('save-file', filePath, content),
   createFile: (folderPath, fileName) => ipcRenderer.invoke('create-file', folderPath, fileName),
-  exportFile: (data) => ipcRenderer.invoke('export-file', data)
+  moveFile: (sourcePath, targetPath) => ipcRenderer.invoke('move-file', sourcePath, targetPath),
+  exportFile: (data) => ipcRenderer.invoke('export-file', data),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url)
 };

@@ -4,6 +4,14 @@
 // marked, hljs (highlight.js), mermaid are global objects
 // ========================================
 
+const { ipcRenderer } = require('electron');
+const path = require('path');
+
+// Global Error Handler to debug renderer issues
+window.addEventListener('error', (event) => {
+  alert('Script Error: ' + event.message + '\nLine: ' + event.lineno);
+});
+
 // Configure Marked.js with Highlight.js
 marked.setOptions({
   gfm: true,           // GitHub Flavored Markdown (includes tables)
@@ -172,6 +180,7 @@ function generateTOC(htmlContent) {
   
   headers.forEach((header, index) => {
     // Ensure header has ID
+    // Note: marked normally adds IDs if headerIds: true is set, but let's ensure it.
     if (!header.id) {
           header.id = 'header-' + index;
     }
@@ -185,8 +194,12 @@ function generateTOC(htmlContent) {
   
   tocHtml += '</ul></div>';
   
+  // We modified the DOM (added IDs), so we must serialize it back to string
+  // to preserve those IDs in the final output.
+  let newBody = doc.body.innerHTML;
+  
   // Return HTML with replaced TOC
-  return htmlContent.replace(/\[TOC\]/gi, tocHtml);
+  return newBody.replace(/\[TOC\]/gi, tocHtml);
 }
 
 // App State
@@ -209,6 +222,10 @@ let autoRefreshInterval = parseInt(localStorage.getItem('autoRefreshInterval')) 
 
 // DOM Elements
 const fileList = document.getElementById('fileList');
+// Drag and Drop (Root Container)
+fileList.addEventListener('dragover', handleDragOver);
+fileList.addEventListener('dragleave', handleDragLeave);
+fileList.addEventListener('drop', handleDrop);
 const workspaceInfo = document.getElementById('workspaceInfo');
 const placeholder = document.getElementById('placeholder');
 const contentView = document.getElementById('contentView');
@@ -325,14 +342,13 @@ refreshIntervalInput.addEventListener('keypress', (e) => {
 });
 
 // Menu Event Listeners (from main process)
-const { ipcRenderer } = require('electron');
-const path = require('path');
+// ipcRenderer and path are already required at top
 
 ipcRenderer.on('menu-open-folder', () => openFolder());
 ipcRenderer.on('menu-new-file', () => showNewFileModal());
 ipcRenderer.on('menu-toggle-sidebar', () => toggleSidebar());
 ipcRenderer.on('menu-swap-sidebar', () => toggleSidebarPosition());
-ipcRenderer.on('menu-open-workspace', (event, path) => openSavedWorkspace(path));
+ipcRenderer.on('menu-open-workspace', (event, wsPath) => openSavedWorkspace(wsPath));
 ipcRenderer.on('menu-go-home', () => showHome());
 
 async function showHome() {
@@ -422,9 +438,15 @@ function findFileInTree(tree, filePath) {
 }
 
 // Sidebar Event Listeners
-collapseSidebarBtn.addEventListener('click', toggleSidebar);
-sidebarToggle.addEventListener('click', toggleSidebar);
-goHomeBtn.addEventListener('click', showHome);
+if (collapseSidebarBtn) {
+  collapseSidebarBtn.addEventListener('click', toggleSidebar);
+}
+if (sidebarToggle) {
+  sidebarToggle.addEventListener('click', toggleSidebar);
+}
+if (goHomeBtn) {
+  goHomeBtn.addEventListener('click', showHome);
+}
 
 // Resize Handle Events
 resizeHandle.addEventListener('mousedown', startResize);
@@ -671,17 +693,33 @@ function renderFileList() {
         
         const folderDiv = document.createElement('div');
         folderDiv.className = `folder-item ${isExpanded ? 'expanded' : ''}`;
+        folderDiv.dataset.path = item.path;
         folderDiv.innerHTML = `
           <span class="folder-toggle">▶</span>
           <span class="folder-icon">📁</span>
           <span class="file-item-name">${item.name}</span>
         `;
         
+        // Drag and Drop (Drop Target)
+        folderDiv.addEventListener('dragover', handleDragOver);
+        folderDiv.addEventListener('dragleave', handleDragLeave);
+        folderDiv.addEventListener('drop', handleDrop);
+        
         const childrenDiv = document.createElement('div');
         childrenDiv.className = 'tree-children';
+        childrenDiv.dataset.path = item.path; // Propagate path to children container
         childrenDiv.style.display = isExpanded ? 'block' : 'none';
-        
+
+        // Drag and Drop for Expanded Area
+        childrenDiv.addEventListener('dragover', handleDragOver);
+        childrenDiv.addEventListener('dragleave', handleDragLeave);
+        childrenDiv.addEventListener('drop', handleDrop);
+
         folderDiv.addEventListener('click', (e) => {
+          // Don't toggle if clicking a button inside (future proofing)
+          if (e.target.closest('.folder-toggle') || !e.target.closest('.folder-item')) {
+             // specific logic
+          }
           const nowExpanded = folderDiv.classList.toggle('expanded');
           childrenDiv.style.display = nowExpanded ? 'block' : 'none';
           localStorage.setItem(folderId, nowExpanded);
@@ -701,6 +739,8 @@ function renderFileList() {
         const fileDiv = document.createElement('div');
         fileDiv.className = 'file-item';
         fileDiv.dataset.path = item.path;
+        fileDiv.draggable = true;
+        
         if (currentFile && currentFile.path === item.path) {
           fileDiv.classList.add('active');
         }
@@ -713,11 +753,25 @@ function renderFileList() {
           <span class="file-item-name">${item.name}</span>
         `;
         
+        // Drag and Drop (Draggable)
+        fileDiv.addEventListener('dragstart', handleDragStart);
+        fileDiv.addEventListener('dragend', handleDragEnd);
+        
         fileDiv.addEventListener('click', () => openFile(item));
         container.appendChild(fileDiv);
       }
     });
   }
+  
+  // Attach root listeners to fileList if not already handled by delegation logic (which handles specific nodes)
+  // But for the "empty space" or "root" drop, we attach to the container
+  // However, we must ensure we don't duplicate logic since renderFileList is called often.
+  // The simplest way is to ensure fileList is clean or use a wrapper. 
+  // Since we clear fileList.innerHTML, we can attach once externally or re-attach. 
+  // Let's rely on init logic or checking if listener exists (hard with anonymous funcs without external ref).
+  // BETTER: Attach root listeners to fileList in initialization code, not here.
+  // But we need to ensure local drops don't bubble up and trigger root drop double.
+  // handleDrop has stopPropagation, so it should be fine.
 
   renderTree(files, fileList);
 }
@@ -738,24 +792,16 @@ function hideContextMenu() {
 // ========================================
 // Drag and Drop Functions
 // ========================================
-let dragSrcEl = null;
 
 function handleDragStart(e) {
-  dragSrcEl = this;
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', this.dataset.index);
+  e.dataTransfer.setData('source-path', this.dataset.path);
   this.classList.add('dragging');
 }
 
 function handleDragOver(e) {
-  if (e.preventDefault) {
-    e.preventDefault();
-  }
+  e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  return false;
-}
-
-function handleDragEnter(e) {
   this.classList.add('drag-over');
 }
 
@@ -763,38 +809,43 @@ function handleDragLeave(e) {
   this.classList.remove('drag-over');
 }
 
-function handleDrop(e) {
-  if (e.stopPropagation) {
-    e.stopPropagation();
+async function handleDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  this.classList.remove('drag-over');
+  
+  let targetFolderPath;
+  
+  // Check if dropping on root container (fileList has id='fileList')
+  if (this.id === 'fileList') {
+    targetFolderPath = currentFolder;
+  } else {
+    targetFolderPath = this.dataset.path;
   }
   
-  const sourceIndex = parseInt(e.dataTransfer.getData('text/plain'));
-  const targetIndex = parseInt(this.dataset.index);
+  const sourcePath = e.dataTransfer.getData('source-path');
   
-  // Don't do anything if dropping on itself
-  if (dragSrcEl !== this && !isNaN(sourceIndex)) {
-    // Reorder array
-    const [movedItem] = files.splice(sourceIndex, 1);
-    files.splice(targetIndex, 0, movedItem);
+  // Handle internal file move
+  if (sourcePath && targetFolderPath) {
+    if (sourcePath === targetFolderPath) return; 
     
-    // Save new order to localStorage
-    try {
-      const fileOrder = files.map(f => f.path);
-      localStorage.setItem(`fileOrder_${currentFolder}`, JSON.stringify(fileOrder));
-    } catch (err) {
-      console.warn('Error saving file order:', err);
+    // Check if moving file to its own parent folder (no-op)
+    const sourceDir = sourcePath.substring(0, sourcePath.lastIndexOf(path.sep));
+    if (sourceDir === targetFolderPath) return;
+
+    const result = await window.api.moveFile(sourcePath, targetFolderPath);
+    
+    if (result.success) {
+      await refreshDirectory();
+    } else {
+      alert('Move failed: ' + result.error);
     }
-    
-    // Re-render
-    renderFileList();
   }
-  
-  return false;
 }
 
 function handleDragEnd(e) {
   this.classList.remove('dragging');
-  document.querySelectorAll('.file-item').forEach(item => {
+  document.querySelectorAll('.folder-item').forEach(item => {
     item.classList.remove('drag-over');
   });
 }
@@ -877,6 +928,75 @@ async function openFile(file) {
     setMode('view');
   }
 }
+
+// Global link interceptor (Capture phase to ensure we beat default behavior)
+document.addEventListener('click', async (e) => {
+  const link = e.target.closest('a');
+  if (!link) return;
+  
+  // Only intercept links inside the markdown view
+  // Actually, we should intercept ALL links in the app to prevent navigation, 
+  // unless they are specifically handled UI buttons (which don't use href usually).
+  // But to be safe, if it has an href, it's a link we want to control.
+  // if (!markdownView.contains(link)) return; // Removed to be more aggressive
+  
+  const href = link.getAttribute('href');
+  if (!href) return;
+  
+  // Prevent ALL default navigation for links immediately
+  e.preventDefault();
+  e.stopPropagation();
+  
+  console.log('Intercepted click:', href);
+
+  // Handle anchor links (TOC)
+  if (href.startsWith('#')) {
+    const targetId = decodeURIComponent(href.substring(1));
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth' });
+    }
+    return;
+  }
+  
+  // Handle external links
+  if (href.startsWith('http') || href.startsWith('mailto:')) {
+    await window.api.openExternal(href);
+    return;
+  }
+  
+  // Handle local file links
+  
+  // Resolve path relative to current file
+  try {
+    const currentDir = currentFile.path.substring(0, currentFile.path.lastIndexOf(path.sep));
+    const targetPath = path.resolve(currentDir, href);
+    console.log('Resolving:', href, '->', targetPath);
+    
+    // Find file in our tree
+    const targetFile = findFileInTree(files, targetPath);
+    
+    if (targetFile) {
+      openFile(targetFile);
+    } else {
+       // Try direct read
+       const result = await window.api.readFile(targetPath);
+       if (result.success) {
+         const tempFile = {
+           name: path.basename(targetPath),
+           path: targetPath,
+           type: 'file'
+         };
+         openFile(tempFile);
+       } else {
+         alert(`File not found: ${href}\nResolved to: ${targetPath}`);
+       }
+    }
+  } catch (err) {
+    console.error('Link navigation error:', err);
+    alert('Link error: ' + err.message);
+  }
+}, true); // Use capture phase
 
 function renderInlineMath() {
    // Find all text and replace $$...$$ or $...$ with katex
