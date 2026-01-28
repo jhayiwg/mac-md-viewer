@@ -1,105 +1,50 @@
-# MD Viewer Test File
+# Features Test
 
-This file tests all the markdown features.
+[TOC]
 
-## Tables
+## Math (LaTeX)
 
-| Feature           | Status     | Notes               |
-| ----------------- | ---------- | ------------------- |
-| Tables            | ✅ Working | Full GFM support    |
-| Code Highlighting | ✅ Working | highlight.js        |
-| Mermaid Diagrams  | ✅ Working | Dark theme          |
-| Headers           | ✅ Working | All levels          |
-| Lists             | ✅ Working | Ordered & Unordered |
+Block math:
 
-## Code with Syntax Highlighting
-
-### JavaScript
-
-```javascript
-function greet(name) {
-  const message = `Hello, ${name}!`;
-  console.log(message);
-  return message;
-}
-
-const result = greet("World");
+```math
+f(x) = \int_{-\infty}^\infty \hat f(\xi)\,e^{2\pi i \xi x} \,d\xi
 ```
 
-### Python
+Inline math: The value of $$x$$ is $$x^2$$.
 
-```python
-def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
+## Flowchart
 
-# Generate first 10 numbers
-for i in range(10):
-    print(fibonacci(i))
+```flow
+st=>start: Start
+op=>operation: Your Operation
+cond=>condition: Yes or No?
+e=>end
+
+st->op->cond
+cond(yes)->e
+cond(no)->op
 ```
 
-### CSS
+## Sequence Diagram
 
-```css
-.container {
-  display: flex;
-  justify-content: center;
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  border-radius: 16px;
-}
+```sequence
+Alice->Bob: Hello Bob, how are you?
+Note right of Bob: Bob thinks
+Bob-->Alice: I am good thanks!
 ```
 
-## Mermaid Diagrams
-
-### Flowchart
-
-```mermaid
-flowchart TD
-    A[Start] --> B{Is it working?}
-    B -->|Yes| C[Great!]
-    B -->|No| D[Debug]
-    D --> B
-    C --> E[End]
-```
-
-### Sequence Diagram
+## Mermaid Sequence (Standard)
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant App
-    participant Server
-
-    User->>App: Open markdown file
-    App->>Server: Read file content
-    Server-->>App: Return content
-    App->>App: Parse markdown
-    App-->>User: Display rendered view
+    participant Alice
+    participant Bob
+    Alice->>John: Hello John, how are you?
+    loop Healthcheck
+        John->>John: Fight against hypochondria
+    end
+    Note right of John: Rational thoughts <br/>prevail!
+    John-->>Alice: Great!
+    John->>Bob: How about you?
+    Bob-->>John: Jolly good!
 ```
-
-## Other Features
-
-> This is a blockquote with some **bold** and _italic_ text.
-
-### Lists
-
-- Unordered item 1
-- Unordered item 2
-  - Nested item
-  - Another nested item
-- Unordered item 3
-
-1. Ordered item 1
-2. Ordered item 2
-3. Ordered item 3
-
-### Text Formatting
-
-This is **bold**, this is _italic_, and this is ~~strikethrough~~.
-
-This is `inline code` within a paragraph.
-
----
-
-_End of test file_

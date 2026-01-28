@@ -13,7 +13,13 @@ MD Viewer is a lightweight Electron-based application designed for a seamless wr
 - **📂 Folder-based Workflow**: Open any folder to browse and manage your markdown files.
 - **🌲 Hierarchical Tree View**: Navigate deeply nested file structures with ease.
 - **📝 Real-time Editor**: Write markdown with instant preview.
-- **📊 Mermaid Diagrams**: Native support for rendering flowcharts, sequence diagrams, and more.
+- **🖼️ Image Viewer**: View local images (.png, .jpg, .gif, .svg, .webp) directly in the app.
+- **📊 Advanced Diagrams**:
+  - **Mermaid**: Sequence diagrams, Gantt charts, etc.
+  - **Flowcharts**: Support for ` ```flow ` blocks.
+  - **Sequence**: Support for standard and simplified sequence diagrams.
+- **🧮 LaTeX Math**: Render math equations using `$$...$$` or ` ```math ` blocks (via KaTeX).
+- **📑 Table of Contents**: Automatically generate TOC by placing `[TOC]` in your file.
 - **🎨 Syntax Highlighting**: Beautiful code block highlighting using `highlight.js`.
 - **📤 Export Options**: Export your documents to **HTML**, **PDF**, or **Word (.docx)**.
 - **⚙️ Customization**:
@@ -72,7 +78,8 @@ Launch MD Viewer directly from your terminal.
 - **Electron**: App runtime.
 - **Marked**: Markdown parsing.
 - **Highlight.js**: Syntax highlighting.
-- **Mermaid**: Diagram generation.
+- **KaTeX**: Fast math typesetting.
+- **Mermaid & Flowchart.js**: Diagram generation.
 - **Vanilla JS/CSS**: Lightweight, dependency-free UI logic.
 
 ## License

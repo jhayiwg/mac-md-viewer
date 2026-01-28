@@ -9,6 +9,7 @@
     />
     <title>MD Viewer</title>
     <link rel="stylesheet" href="./node_modules/highlight.js/styles/github-dark.css" />
+    <link rel="stylesheet" href="./node_modules/katex/dist/katex.min.css" />
     <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body>
@@ -217,6 +218,13 @@
         const path = require('path');
         window.mermaid = require(path.join(__dirname, 'assets/mermaid.cjs'));
         
+        // Load KaTeX
+        window.katex = require('katex');
+        
+        // Load Flowchart (requires Raphael)
+        window.Raphael = require('raphael');
+        window.flowchart = require('flowchart.js');
+
         // Load renderer script now that libraries are ready
         const script = document.createElement('script');
         script.src = 'renderer.js';

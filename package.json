@@ -16,10 +16,13 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
+    "flowchart.js": "^1.18.0",
     "highlight.js": "^11.11.1",
     "html-to-docx": "^1.8.0",
+    "katex": "^0.16.28",
     "marked": "^11.2.0",
-    "mermaid": "^10.9.1"
+    "mermaid": "^10.9.1",
+    "raphael": "^2.3.0"
   },
   "build": {
     "appId": "com.mdviewer.app",

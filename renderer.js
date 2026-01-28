@@ -25,12 +25,26 @@ marked.setOptions({
 });
 
 // Custom renderer to handle mermaid diagrams
+// Custom renderer
 const renderer = new marked.Renderer();
 const originalCodeRenderer = renderer.code.bind(renderer);
 
 renderer.code = function(code, language, isEscaped) {
   if (language === 'mermaid') {
     return `<div class="mermaid">${code}</div>`;
+  }
+  if (language === 'sequence') {
+    return `<div class="mermaid sequence">${code}</div>`;
+  }
+  if (language === 'flow') {
+    return `<div class="flow-chart">${code}</div>`;
+  }
+  if (language === 'math' || language === 'latex' || language === 'katex') {
+    try {
+      return katex.renderToString(code, { displayMode: true });
+    } catch (err) {
+      return `<div class="katex-error">${err.css ? err.css : 'Math Error'}</div>`;
+    }
   }
   return originalCodeRenderer(code, language, isEscaped);
 };
@@ -62,18 +76,117 @@ mermaid.initialize({
 });
 
 // Function to render mermaid diagrams after markdown is rendered
+// Function to render mermaid diagrams after markdown is rendered
 async function renderMermaidDiagrams() {
   const mermaidElements = document.querySelectorAll('.mermaid');
   for (const element of mermaidElements) {
+    // Check if valid code content exists
+    if (!element.textContent.trim()) continue;
+    
+    // Alias sequence syntax adjustment if needed
+    // Alias sequence syntax adjustment if needed
+    let content = element.textContent;
+    
+    // EXPLICIT: If tagged as sequence, force sequenceDiagram if missing
+    if (element.classList.contains('sequence')) {
+         if (!content.trim().startsWith('sequenceDiagram')) {
+             content = 'sequenceDiagram\n' + content;
+         }
+    } 
+    // HEURISTIC: Legacy support or plain blocks
+    else if (content.trim().startsWith('participant') || content.trim().startsWith('Title:')) {
+       // Possible js-sequence-diagrams syntax, Mermaid might handle it or need "sequenceDiagram" prepended
+       if (!content.includes('sequenceDiagram')) {
+         content = 'sequenceDiagram\n' + content;
+       }
+    }
+
     try {
       const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
-      const { svg } = await mermaid.render(id, element.textContent);
+      const { svg } = await mermaid.render(id, content);
       element.innerHTML = svg;
     } catch (err) {
       console.error('Mermaid render error:', err);
-      element.innerHTML = `<pre class="mermaid-error">Diagram Error: ${err.message}</pre>`;
+      // Don't show large error blocks for work-in-progress typing
+      element.innerHTML = `<pre class="mermaid-error" style="color:red; font-size:0.8em;">${err.message}</pre>`;
     }
   }
+}
+
+// Render Flowcharts
+function renderFlowcharts() {
+  const flowElements = document.querySelectorAll('.flow-chart');
+  for (const element of flowElements) {
+    try {
+      const code = element.textContent;
+      element.innerHTML = ''; // Clear text
+      const chart = flowchart.parse(code);
+      chart.drawSVG(element, {
+        'x': 0,
+        'y': 0,
+        'line-width': 2,
+        'line-length': 50,
+        'text-margin': 10,
+        'font-size': 14,
+        'font-color': '#e8e8e8',
+        'line-color': '#a0a0b0',
+        'element-color': '#a0a0b0',
+        'fill': '#1a1a2e',
+        'yes-text': 'yes',
+        'no-text': 'no',
+        'arrow-end': 'block',
+        'scale': 1,
+        'flowstate' : {
+          'past' : { 'fill' : '#CCCCCC', 'font-size' : 12},
+          'current' : {'fill' : 'yellow', 'font-color' : 'red', 'font-weight' : 'bold'},
+          'future' : { 'fill' : '#FFFF99'},
+          'request' : { 'fill' : 'blue'},
+          'invalid': {'fill' : '#444444'},
+          'approved' : { 'fill' : '#58C4A3', 'font-size' : 12, 'yes-text' : 'APPROVED', 'no-text' : 'n/a' },
+          'rejected' : { 'fill' : '#C45879', 'font-size' : 12, 'yes-text' : 'n/a', 'no-text' : 'REJECTED' }
+        }
+      });
+    } catch (err) {
+      console.error('Flowchart render error:', err);
+      element.innerHTML = `<pre>Flowchart Error: ${err.message}</pre>`;
+    }
+  }
+}
+
+// Generate Table of Contents
+function generateTOC(htmlContent) {
+  // If [TOC] is present, generate it
+  if (!htmlContent.includes('[TOC]') && !htmlContent.includes('[toc]')) {
+    return htmlContent;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  const headers = doc.querySelectorAll('h1, h2, h3');
+  
+  if (headers.length === 0) {
+    return htmlContent.replace(/\[TOC\]/gi, '');
+  }
+
+  let tocHtml = '<div class="toc"><h3>Table of Contents</h3><ul>';
+  
+  headers.forEach((header, index) => {
+    // Ensure header has ID
+    if (!header.id) {
+          header.id = 'header-' + index;
+    }
+    
+    const level = parseInt(header.tagName.substring(1));
+    const text = header.textContent;
+    const marginLeft = (level - 1) * 20;
+    
+    tocHtml += `<li style="margin-left: ${marginLeft}px"><a href="#${header.id}">${text}</a></li>`;
+  });
+  
+  tocHtml += '</ul></div>';
+  
+  // Return HTML with replaced TOC
+  return htmlContent.replace(/\[TOC\]/gi, tocHtml);
 }
 
 // App State
@@ -743,15 +856,64 @@ async function openFile(file) {
     // Show markdown view
     imageView.style.display = 'none';
     
-    // Render markdown
-    markdownView.innerHTML = marked.parse(result.content);
+    // Parse Markdown
+    let html = marked.parse(result.content);
     
-    // Render mermaid diagrams
+    // Generate TOC
+    html = generateTOC(html);
+    
+    // Render HTML
+    markdownView.innerHTML = html;
+    
+    // Render diagrams
     await renderMermaidDiagrams();
+    renderFlowcharts();
+    
+    // Retrieve KaTeX for inline math if needed (not captured by code blocks)
+    // Basic inline math support $$...$$
+    renderInlineMath();
     
     // Set to view mode
     setMode('view');
   }
+}
+
+function renderInlineMath() {
+   // Find all text and replace $$...$$ or $...$ with katex
+   // Note: This is a simple implementation. For robust inline math, a marked extension is better.
+   // But we'll do a post-pass DOM replacement for now which is safer than regexing HTML string.
+   // Skipping complex inline math for now to avoid breaking HTML tags, but block math via code block is supported.
+   // To support inline $$..$$:
+   const walker = document.createTreeWalker(markdownView, NodeFilter.SHOW_TEXT);
+   let node;
+   const nodesToReplace = [];
+   
+   while(node = walker.nextNode()) {
+     if (node.nodeValue.includes('$$')) {
+       nodesToReplace.push(node);
+     }
+   }
+   
+   nodesToReplace.forEach(node => {
+     const parts = node.nodeValue.split('$$');
+     if (parts.length < 3) return; // No pair
+     
+     const fragment = document.createDocumentFragment();
+     parts.forEach((part, i) => {
+       if (i % 2 === 1) { // Math part
+         const span = document.createElement('span');
+         try {
+            katex.render(part, span, { throwOnError: false, displayMode: false });
+            fragment.appendChild(span);
+         } catch(e) {
+            fragment.appendChild(document.createTextNode('$$' + part + '$$'));
+         }
+       } else { // Text part
+         fragment.appendChild(document.createTextNode(part));
+       }
+     });
+     node.parentNode.replaceChild(fragment, node);
+   });
 }
 
 function setMode(mode) {
@@ -782,8 +944,14 @@ async function saveFile() {
   
   if (result.success) {
     originalContent = content;
-    markdownView.innerHTML = marked.parse(content);
+    let html = marked.parse(content);
+    html = generateTOC(html);
+    markdownView.innerHTML = html;
+    
     await renderMermaidDiagrams();
+    renderFlowcharts();
+    renderInlineMath();
+    
     setMode('view');
   } else {
     alert('Failed to save: ' + result.error);
