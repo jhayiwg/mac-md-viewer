@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    />
+    <title>MD Viewer</title>
+    <link rel="stylesheet" href="./node_modules/highlight.js/styles/github-dark.css" />
+    <link rel="stylesheet" href="styles/main.css" />
+  </head>
+  <body>
+    <div class="app-container" id="appContainer">
+      <!-- Sidebar Wrapper -->
+      <div class="sidebar-wrapper" id="sidebarWrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-header">
+            <div class="app-title clickable" id="goHomeBtn" title="Go to Home">
+              <span class="app-icon">📝</span>
+              <span class="app-title-text">MD Viewer</span>
+            </div>
+            <div class="sidebar-header-actions">
+              <button id="openSettingsBtn" class="sidebar-btn" title="Settings">⚙</button>
+              <button class="sidebar-collapse-btn" id="collapseSidebarBtn" title="Collapse sidebar">
+                <span>◀</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="workspace-info" id="workspaceInfo">
+            <div class="workspace-info-header">
+              <span class="workspace-label">No folder opened</span>
+              <button id="refreshWorkspaceBtn" class="refresh-btn" title="Refresh workspace" style="display: none;">↻</button>
+            </div>
+          </div>
+
+          <nav class="file-list" id="fileList">
+            <!-- Files will be populated here -->
+          </nav>
+        </aside>
+        
+        <!-- Resize Handle -->
+        <div class="resize-handle" id="resizeHandle"></div>
+      </div>
+      
+      <!-- Sidebar Toggle (visible when sidebar is hidden) -->
+      <!-- 
+      <button class="sidebar-toggle" id="sidebarToggle" title="Show sidebar">
+        <span>☰</span>
+      </button>
+       -->
+
+      <!-- Main Content -->
+      <main class="content">
+        <div class="content-placeholder" id="placeholder">
+          <div class="placeholder-icon">📄</div>
+          <h2>Welcome to MD Viewer</h2>
+          <p>Open a folder to browse your markdown files</p>
+          
+          <div class="recent-workspaces" id="recentWorkspaces" style="display: none;">
+            <h3>Recent Workspaces</h3>
+            <div class="workspace-list" id="workspaceList">
+              <!-- Recent workspaces will be populated here -->
+            </div>
+          </div>
+
+          <div class="setup-info">
+            <h3>Terminal Setup</h3>
+            <p>You can open markdown files or folders directly from your terminal using the <code>md</code> command.</p>
+            
+            <div class="code-snippet">
+              alias md='open -a "MD Viewer" --args'
+            </div>
+
+            <div class="setup-steps">
+              <ol>
+                <li>Open your terminal</li>
+                <li>Run <code>nano ~/.zshrc</code> (or your shell config)</li>
+                <li>Paste the alias above and save (Ctrl+O, Enter, Ctrl+X)</li>
+                <li>Restart terminal or run <code>source ~/.zshrc</code></li>
+                <li>Try it: <code>md .</code></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-view" id="contentView" style="display: none">
+          <header class="content-header">
+            <h1 class="file-title" id="fileTitle">Untitled</h1>
+            <div class="header-actions">
+              <div class="export-dropdown" id="exportDropdown">
+                <button id="exportBtn" class="header-btn" title="Export file">
+                  <span>📤</span> Export
+                </button>
+                <div class="dropdown-content" id="exportMenu">
+                  <button data-format="html">HTML (.html)</button>
+                  <button data-format="pdf">PDF (.pdf)</button>
+                  <button data-format="docx">Word (.docx)</button>
+                </div>
+              </div>
+              <div class="mode-toggle">
+                <button id="viewModeBtn" class="mode-btn active">
+                  <span>👁</span> View
+                </button>
+                <button id="editModeBtn" class="mode-btn">
+                  <span>✏️</span> Edit
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div class="markdown-view" id="markdownView">
+            <!-- Rendered markdown will appear here -->
+          </div>
+
+          <div class="editor-view" id="editorView" style="display: none">
+            <textarea
+              id="editor"
+              placeholder="Write your markdown here..."
+            ></textarea>
+            <div class="editor-actions">
+              <button id="saveBtn" class="btn btn-success">
+                <span>💾</span> Save
+              </button>
+              <button id="cancelBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- App Footer -->
+        <footer class="app-footer" id="appFooter">
+          <span class="footer-path" id="footerPath">No workspace opened</span>
+        </footer>
+      </main>
+    </div>
+
+    <!-- New File Modal -->
+    <div class="modal" id="newFileModal" style="display: none">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <h3>Create New File</h3>
+        <input
+          type="text"
+          id="newFileName"
+          placeholder="Enter file name..."
+          class="input"
+        />
+        <div class="modal-actions">
+          <button id="createFileBtn" class="btn btn-primary">Create</button>
+          <button id="cancelModalBtn" class="btn btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+      <div class="context-menu-item" id="ctxNewFile">New File...</div>
+    </div>
+
+    <!-- Rename Workspace Modal -->
+    <div id="renameWorkspaceModal" class="modal" style="display: none">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <h3>Rename Workspace</h3>
+        <input 
+          type="text" 
+          id="workspaceNewName" 
+          placeholder="New workspace name..." 
+          class="input"
+        />
+        <div class="modal-actions">
+          <button id="saveWorkspaceNameBtn" class="btn btn-primary">Rename</button>
+          <button id="cancelRenameBtn" class="btn btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" style="display: none">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <h3>App Settings</h3>
+        
+        <div class="settings-group">
+          <label for="refreshInterval">Auto Refresh Interval (seconds)</label>
+          <div class="input-with-description">
+            <input 
+              type="number" 
+              id="refreshInterval" 
+              min="0" 
+              placeholder="e.g. 10 (0 to disable)" 
+              class="input"
+            />
+            <small>Automatically re-scans for file changes</small>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+          <button id="cancelSettingsBtn" class="btn btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load Libraries -->
+    <script>
+      try {
+        window.marked = require('marked').marked;
+        window.hljs = require('highlight.js');
+        const path = require('path');
+        window.mermaid = require(path.join(__dirname, 'assets/mermaid.cjs'));
+        
+        // Load renderer script now that libraries are ready
+        const script = document.createElement('script');
+        script.src = 'renderer.js';
+        document.body.appendChild(script);
+      } catch (err) {
+        console.error('Failed to load libraries:', err);
+      }
+    </script>
+  </body>
+</html>
